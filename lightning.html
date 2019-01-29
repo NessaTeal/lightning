@@ -1,0 +1,115 @@
+<html>
+	<body>
+		<canvas id="canvas" width="5000" height="500" style="background: black;"></canvas>
+		<canvas id="canvas2" width="5000" height="500" style="position: absolute; top: 8px; left: 8px;"></canvas>
+		<script>
+			function getRandomAngle() {
+				var u = 0, v = 0;
+				while(u === 0) u = Math.random(); //Converting [0,1) to (0,1)
+				while(v === 0) v = Math.random();
+				return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v) / (2);
+			}
+
+			class Point {
+				constructor(x, y) {
+					this.x = x;
+					this.y = y;
+				}
+//−
+				rotate(rotationPoint, angle) {
+					this.x = rotationPoint.x + (this.x - rotationPoint.x) * Math.cos(angle) - (this.y - rotationPoint.y) * Math.sin(angle);
+					this.y = rotationPoint.y + (this.x - rotationPoint.x) * Math.sin(angle) + (this.y - rotationPoint.y) * Math.cos(angle);
+				}
+
+				add(dx, dy) {
+					return new Point(this.x + dx, this.y + dy);
+				}
+
+				findAngle(endPoint) {
+					return Math.atan2(endPoint.y - this.y, endPoint.x - this.x);
+				}
+			}
+
+			class Rectangle {
+				constructor(startingPoint, width, length) {
+					this.p1 = startingPoint.add(0, width / 2);
+					this.p2 = startingPoint.add(length, width / 2);
+					this.p3 = startingPoint.add(length, -width / 2);
+					this.p4 = startingPoint.add(0, -width / 2);
+				}
+
+				rotate(rotationPoint, angle) {
+					this.p1.rotate(rotationPoint, angle);
+					this.p2.rotate(rotationPoint, angle);
+					this.p3.rotate(rotationPoint, angle);
+					this.p4.rotate(rotationPoint, angle);
+				}
+
+				draw(ctx) {
+					ctx.beginPath();
+					ctx.moveTo(this.p1.x, this.p1.y);
+					ctx.lineTo(this.p2.x, this.p2.y);
+					ctx.lineTo(this.p3.x, this.p3.y);
+					ctx.lineTo(this.p4.x, this.p4.y);
+					ctx.lineTo(this.p1.x, this.p1.y);
+					ctx.fill();
+				}
+
+				getNewStartingPoint() {
+					return new Point((this.p2.x + this.p3.x) / 2, (this.p2.y + this.p3.y) / 2);
+				}
+			}
+
+			var canvas = document.getElementById("canvas");
+			var ctx = canvas.getContext("2d");
+			ctx.fillStyle = "#4744ff"
+
+			var canvas2 = document.getElementById("canvas2");
+			var ctx2 = canvas2.getContext("2d");
+			ctx2.fillStyle = "#4744ff"
+			var width = 2;
+			var minLength = 5;
+			var maxLength = 20;
+
+			var timerFunc = function() {
+				var previousPoint = new Point(0, 250);
+				var endPoint = new Point(500, 250);
+				for (var i = 0; i < 100; i++) {
+					var startingAngle = previousPoint.findAngle(endPoint);
+					var randomAngle = getRandomAngle();
+					var newRectangle = new Rectangle(previousPoint, width, minLength + Math.random() * (maxLength - minLength));
+					newRectangle.rotate(previousPoint, randomAngle);
+					newRectangle.draw(ctx);
+					previousPoint = newRectangle.getNewStartingPoint();
+				}
+			}
+
+			var timerFunc2 = function() {
+				var previousPoint = new Point(0, 250);
+				var endPoint = new Point(500, 250);
+				for (var i = 0; i < 100; i++) {
+					var startingAngle = previousPoint.findAngle(endPoint);
+					var randomAngle = getRandomAngle();
+					var newRectangle = new Rectangle(previousPoint, width, minLength + Math.random() * (maxLength - minLength));
+					newRectangle.rotate(previousPoint, randomAngle);
+					newRectangle.draw(ctx2);
+					previousPoint = newRectangle.getNewStartingPoint();
+				}
+			}
+
+			var clearFunction = function() {
+				ctx.clearRect(0, 0, 500, 500);
+			}
+
+			var clearFunction2 = function() {
+				ctx2.clearRect(0, 0, 500, 500);
+			}
+
+			setInterval(timerFunc, 50);
+			setInterval(clearFunction, 600);
+
+			setTimeout(function() {setInterval(timerFunc2, 100)}, 200);
+			setTimeout(function() {setInterval(clearFunction2, 700)}, 750);
+		</script>
+	</body>
+</html>
