@@ -3,10 +3,13 @@ var minLength = 3;
 var maxLength = 8;
 var velocity = 50;
 var timestep = 1000 / 60;
-var lightningSpawnPeriod = 30;
+var lightningSpawnPeriod = 62.5;
 var lightningConstantLifetime = 100;
 var lightningVariableLifetime = 50;
 var lightningSegmentsPerUpdate = 10;
+var standardDeviation = Math.PI / 7;
+var branchingChance = 0.1;
+var branchingAngleMean = Math.PI / 6;
 
 function getGaussianRandom(mean, standardDeviation) {
 	var v1, v2, s;
@@ -83,10 +86,25 @@ class Lightning {
 
 	update() {
 		for (var i = 0; i < lightningSegmentsPerUpdate; i++) {
-			var randomAngle = getGaussianRandom(0, Math.PI / 7);
+			var randomAngle = getGaussianRandom(0, standardDeviation);
 			var newRectangle = new Rectangle(this.previousPoint, width, minLength + Math.random() * (maxLength - minLength));
 			newRectangle.rotate(this.previousPoint, randomAngle);
 			this.pieces.push(newRectangle);
+
+			if (Math.random() <= branchingChance) {
+				var leftRectangle = new Rectangle(this.previousPoint, width, minLength + Math.random() * (maxLength - minLength));
+				var leftAngle = getGaussianRandom(-branchingAngleMean, standardDeviation);
+				leftRectangle.rotate(this.previousPoint, leftAngle);
+				this.pieces.push(leftRectangle);
+			}
+
+			if (Math.random() <= branchingChance) {
+				var rightRectangle = new Rectangle(this.previousPoint, width, minLength + Math.random() * (maxLength - minLength));
+				var rightAngle = getGaussianRandom(branchingAngleMean, standardDeviation);
+				rightRectangle.rotate(this.previousPoint, rightAngle);
+				this.pieces.push(rightRectangle);
+			}
+
 			this.previousPoint = newRectangle.getNewStartingPoint();
 		}
 	}
