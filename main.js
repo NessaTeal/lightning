@@ -2,6 +2,11 @@ var width = 1;
 var minLength = 3;
 var maxLength = 8;
 var velocity = 50;
+var timestep = 1000 / 60;
+var lightningSpawnPeriod = 30;
+var lightningConstantLifetime = 100;
+var lightningVariableLifetime = 50;
+var lightningSegmentsPerUpdate = 10;
 
 function getGaussianRandom(mean, standardDeviation) {
 	var v1, v2, s;
@@ -71,16 +76,18 @@ class Rectangle {
 }
 
 class Lightning {
-	constructor(startPoint, endPoint) {
+	constructor(startPoint) {
 		this.pieces = [];
-		var previousPoint = startPoint;
-		for (var i = 0; i < 1000; i++) {
-			var startingAngle = previousPoint.findAngle(endPoint);
+		this.previousPoint = startPoint;
+	}
+
+	update() {
+		for (var i = 0; i < lightningSegmentsPerUpdate; i++) {
 			var randomAngle = getGaussianRandom(0, Math.PI / 7);
-			var newRectangle = new Rectangle(previousPoint, width, minLength + Math.random() * (maxLength - minLength));
-			newRectangle.rotate(previousPoint, randomAngle);
+			var newRectangle = new Rectangle(this.previousPoint, width, minLength + Math.random() * (maxLength - minLength));
+			newRectangle.rotate(this.previousPoint, randomAngle);
 			this.pieces.push(newRectangle);
-			previousPoint = newRectangle.getNewStartingPoint();
+			this.previousPoint = newRectangle.getNewStartingPoint();
 		}
 	}
 
@@ -102,16 +109,13 @@ function start() {
 	var endPoint = new Point(1000, 250);
 	var lightnings = [];
 
-	var removeFunc = function() {
-		lightnings.shift();
+	function update(delta) {
+		lightnings.forEach(function(lightning) {
+			lightning.update();
+		})
 	}
 
-	var timerFunc = function() {
-		lightnings.push(new Lightning(startPoint, endPoint));
-		setTimeout(removeFunc, 100 * Math.random() + 100);
-	}
-
-	var drawFunc = function() {
+	function draw() {
 		bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
 		lightnings.forEach(function(lightning) {
 			lightning.draw(bufferCtx);
@@ -121,8 +125,31 @@ function start() {
 		realCtx.drawImage(bufferCanvas, 0, 0);
 	}
 
-	setInterval(timerFunc, 30);
-	setInterval(drawFunc, 16.7);
+	var delta = 0;
+	var lastFrameTimeMs = 0;
+
+	function mainLoop(timestamp) {
+		delta += timestamp - lastFrameTimeMs;
+		lastFrameTimeMs = timestamp;
+		while (delta >= timestep) {
+			update(timestep);
+			delta -= timestep;
+		}
+		draw();
+		requestAnimationFrame(mainLoop);
+	}
+
+	function lightningDespawn() {
+		lightnings.shift();
+	}
+
+	function lightningSpawnFunction() {
+		lightnings.push(new Lightning(startPoint, endPoint));
+		setTimeout(lightningDespawn, lightningVariableLifetime * Math.random() + lightningConstantLifetime);
+	}
+
+	setInterval(lightningSpawnFunction, lightningSpawnPeriod);
+	requestAnimationFrame(mainLoop);
 }
 
 $(document).ready(start);
