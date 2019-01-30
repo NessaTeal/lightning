@@ -10,6 +10,7 @@ var lightningSegmentsPerUpdate = 10;
 var standardDeviation = Math.PI / 7;
 var branchingChance = 0.1;
 var branchingAngleMean = Math.PI / 6;
+var branchingSurvivabilityModifier = 0.5;
 
 function getGaussianRandom(mean, standardDeviation) {
 	var v1, v2, s;
@@ -79,30 +80,41 @@ class Rectangle {
 }
 
 class Lightning {
-	constructor(startPoint) {
+	constructor(startPoint, meanAngle, surviveProbability) {
 		this.pieces = [];
+		this.branches = [];
+		this.meanAngle = meanAngle;
 		this.previousPoint = startPoint;
+		this.surviveProbability = surviveProbability;
+		this.alive = true;
 	}
 
 	update() {
+		this.branches.forEach(function(branch) {
+			branch.update();
+		});
+		
+		if (!this.alive) {
+			return;
+		}
+		
+		if (Math.random() > this.surviveProbability) {
+			this.alive = false;
+			return;
+		}
+		
 		for (var i = 0; i < lightningSegmentsPerUpdate; i++) {
-			var randomAngle = getGaussianRandom(0, standardDeviation);
+			var randomAngle = getGaussianRandom(this.meanAngle, standardDeviation);
 			var newRectangle = new Rectangle(this.previousPoint, width, minLength + Math.random() * (maxLength - minLength));
 			newRectangle.rotate(this.previousPoint, randomAngle);
 			this.pieces.push(newRectangle);
 
 			if (Math.random() <= branchingChance) {
-				var leftRectangle = new Rectangle(this.previousPoint, width, minLength + Math.random() * (maxLength - minLength));
-				var leftAngle = getGaussianRandom(-branchingAngleMean, standardDeviation);
-				leftRectangle.rotate(this.previousPoint, leftAngle);
-				this.pieces.push(leftRectangle);
+				this.branches.push(new Lightning(this.previousPoint, this.meanAngle - branchingAngleMean, this.surviveProbability * branchingSurvivabilityModifier));
 			}
 
 			if (Math.random() <= branchingChance) {
-				var rightRectangle = new Rectangle(this.previousPoint, width, minLength + Math.random() * (maxLength - minLength));
-				var rightAngle = getGaussianRandom(branchingAngleMean, standardDeviation);
-				rightRectangle.rotate(this.previousPoint, rightAngle);
-				this.pieces.push(rightRectangle);
+				this.branches.push(new Lightning(this.previousPoint, this.meanAngle + branchingAngleMean, this.surviveProbability * branchingSurvivabilityModifier));
 			}
 
 			this.previousPoint = newRectangle.getNewStartingPoint();
@@ -110,6 +122,10 @@ class Lightning {
 	}
 
 	draw(ctx) {
+		this.branches.forEach(function(branch) {
+			branch.draw(ctx);
+		});
+		
 		this.pieces.forEach(function(piece) {
 			piece.draw(ctx)
 		});
@@ -162,7 +178,7 @@ function start() {
 	}
 
 	function lightningSpawnFunction() {
-		lightnings.push(new Lightning(startPoint, endPoint));
+		lightnings.push(new Lightning(startPoint, 0, 1));
 		setTimeout(lightningDespawn, lightningVariableLifetime * Math.random() + lightningConstantLifetime);
 	}
 
