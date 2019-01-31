@@ -1,9 +1,7 @@
-var width = 1;
 var minLength = 3;
 var maxLength = 8;
-var velocity = 50;
 var timestep = 1000 / 60;
-var lightningSpawnPeriod = 62.5;
+var lightningSpawnPerPeriod = 5;
 var lightningConstantLifetime = 100;
 var lightningVariableLifetime = 50;
 var lightningSegmentsPerUpdate = 10;
@@ -51,40 +49,22 @@ class Point {
 	}
 }
 
-class Rectangle {
-	constructor(startingPoint, width, length) {
-		this.p1 = startingPoint.add(0, width / 2);
-		this.p2 = startingPoint.add(length, width / 2);
-		this.p3 = startingPoint.add(length, -width / 2);
-		this.p4 = startingPoint.add(0, -width / 2);
-	}
-
-	rotate(rotationPoint, angle) {
-		this.p1.rotate(rotationPoint, angle);
-		this.p2.rotate(rotationPoint, angle);
-		this.p3.rotate(rotationPoint, angle);
-		this.p4.rotate(rotationPoint, angle);
+class Segment {
+	constructor(from, to) {
+		this.from = from;
+		this.to = to;
 	}
 
 	draw(ctx) {
-		ctx.beginPath();
-		ctx.moveTo(this.p1.x, this.p1.y);
-		ctx.lineTo(this.p2.x, this.p2.y);
-		ctx.lineTo(this.p3.x, this.p3.y);
-		ctx.lineTo(this.p4.x, this.p4.y);
-		ctx.lineTo(this.p1.x, this.p1.y);
-		ctx.fill();
-	}
-
-	getNewStartingPoint() {
-		return new Point((this.p2.x + this.p3.x) / 2, (this.p2.y + this.p3.y) / 2);
+		ctx.moveTo(this.from.x, this.from.y);
+		ctx.lineTo(this.to.x, this.to.y);
 	}
 }
 
 class Lightning {
 	constructor(startPoint, meanAngle, surviveProbability) {
-		this.pieces = [];
 		this.branches = [];
+		this.segments = [];
 		this.meanAngle = meanAngle;
 		this.previousPoint = startPoint;
 		this.surviveProbability = surviveProbability;
@@ -92,24 +72,22 @@ class Lightning {
 	}
 
 	update() {
-		this.branches.forEach(function(branch) {
-			branch.update();
-		});
-		
+		this.branches.forEach(branch => branch.update());
+
 		if (!this.alive) {
 			return;
 		}
-		
+
 		if (Math.random() > this.surviveProbability) {
 			this.alive = false;
 			return;
 		}
-		
+
 		for (var i = 0; i < lightningSegmentsPerUpdate; i++) {
 			var randomAngle = getGaussianRandom(this.meanAngle, standardDeviation);
-			var newRectangle = new Rectangle(this.previousPoint, width, minLength + Math.random() * (maxLength - minLength));
-			newRectangle.rotate(this.previousPoint, randomAngle);
-			this.pieces.push(newRectangle);
+			var nextPoint = this.previousPoint.add(minLength + Math.random() * (maxLength - minLength), 0);
+			nextPoint.rotate(this.previousPoint, randomAngle);
+			this.segments.push(new Segment(this.previousPoint, nextPoint));
 
 			if (Math.random() <= branchingChance) {
 				this.branches.push(new Lightning(this.previousPoint, this.meanAngle - branchingAngleMean, this.surviveProbability * branchingSurvivabilityModifier));
@@ -119,18 +97,22 @@ class Lightning {
 				this.branches.push(new Lightning(this.previousPoint, this.meanAngle + branchingAngleMean, this.surviveProbability * branchingSurvivabilityModifier));
 			}
 
-			this.previousPoint = newRectangle.getNewStartingPoint();
+			this.previousPoint = nextPoint;
 		}
 	}
 
+	drawBranch(ctx) {
+		this.segments.forEach(segment => segment.draw(ctx));
+	}
+
 	draw(ctx) {
-		this.branches.forEach(function(branch) {
-			branch.draw(ctx);
-		});
-		
-		this.pieces.forEach(function(piece) {
-			piece.draw(ctx)
-		});
+		ctx.beginPath();
+
+		this.branches.forEach(branch => branch.drawBranch(ctx));
+
+		this.drawBranch(ctx);
+
+		ctx.stroke();
 	}
 }
 
@@ -140,15 +122,13 @@ function start() {
 
 	var bufferCanvas = $("#bufferCanvas")[0];
 	var bufferCtx = bufferCanvas.getContext("2d");
-	bufferCtx.fillStyle = "#FFFFFF"
-	var startPoint = new Point(0, 250);
-	var endPoint = new Point(1000, 250);
+	bufferCtx.strokeStyle = "#FFFFFF";
+	bufferCtx.lineWidth = 1;
+	var startPoint = new Point(500, 500);
 	var lightnings = [];
 
 	function update(delta) {
-		lightnings.forEach(function(lightning) {
-			lightning.update();
-		})
+		lightnings.forEach(lightning => lightning.update());
 	}
 
 	function draw() {
@@ -163,11 +143,33 @@ function start() {
 
 	var delta = 0;
 	var lastFrameTimeMs = 0;
+	var despawnTimes = [];
+
+	function spawnLightning(timestamp) {
+		var distantPoint = startPoint.add(25, 0);
+		var angle = Math.PI * Math.random() * 2;
+		distantPoint.rotate(startPoint, angle);
+		var lightning = new Lightning(distantPoint, angle, 1);
+		lightnings.push(lightning);
+		despawnTimes.push(timestamp + lightningConstantLifetime + lightningVariableLifetime * Math.random());
+	}
 
 	function mainLoop(timestamp) {
 		delta += timestamp - lastFrameTimeMs;
 		lastFrameTimeMs = timestamp;
+
+		if (delta / timestep >= 25) {
+			delta = 25;
+		}
+
+		var despawns = despawnTimes.filter(time => time <= timestamp);
+		despawnTimes = despawnTimes.splice(despawns.length)
+		despawns.forEach(() => lightnings.shift());
+
 		while (delta >= timestep) {
+			for (var i = 0; i < lightningSpawnPerPeriod; i++) {
+				spawnLightning(timestamp);
+			}
 			update(timestep);
 			delta -= timestep;
 		}
@@ -175,16 +177,6 @@ function start() {
 		requestAnimationFrame(mainLoop);
 	}
 
-	function lightningDespawn() {
-		lightnings.shift();
-	}
-
-	function lightningSpawnFunction() {
-		lightnings.push(new Lightning(startPoint, 0, 1));
-		setTimeout(lightningDespawn, lightningVariableLifetime * Math.random() + lightningConstantLifetime);
-	}
-
-	setInterval(lightningSpawnFunction, lightningSpawnPeriod);
 	requestAnimationFrame(mainLoop);
 }
 
