@@ -32,8 +32,10 @@ class Point {
 	}
 
 	rotate(rotationPoint, angle) {
-		this.x = rotationPoint.x + (this.x - rotationPoint.x) * Math.cos(angle) - (this.y - rotationPoint.y) * Math.sin(angle);
-		this.y = rotationPoint.y + (this.x - rotationPoint.x) * Math.sin(angle) + (this.y - rotationPoint.y) * Math.cos(angle);
+		var newX = rotationPoint.x + (this.x - rotationPoint.x) * Math.cos(angle) + (this.y - rotationPoint.y) * Math.sin(angle);
+		var newY = rotationPoint.y - (this.x - rotationPoint.x) * Math.sin(angle) + (this.y - rotationPoint.y) * Math.cos(angle);
+		this.x = newX;
+		this.y = newY;
 	}
 
 	add(dx, dy) {
