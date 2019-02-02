@@ -96,6 +96,7 @@ class Lightning {
 		this.previousPoint = startPoint;
 		this.surviveProbability = surviveProbability;
 		this.alive = true;
+		this.segmentSpawnBuffer = 0;
 		this.time = lightningConstantLifetime + lightningVariableLifetime * Math.random();
 	}
 
@@ -111,7 +112,10 @@ class Lightning {
 			return;
 		}
 
-		for (var i = 0; i < lightningSegmentsPerUpdate; i++) {
+		this.segmentSpawnBuffer += lightningSegmentsPerUpdate;
+
+		while (this.segmentSpawnBuffer >= 1) {
+			this.segmentSpawnBuffer -= 1;
 			var randomAngle = getGaussianRandom(this.meanAngle, standardDeviation);
 			var nextPoint = this.previousPoint.add(minLength + Math.random() * (maxLength - minLength), 0);
 			nextPoint.rotate(this.previousPoint, randomAngle);
@@ -149,6 +153,7 @@ class Lightning {
 }
 
 var objects = [];
+var spawnBuffer = 0;
 var timeForLastFrame = 0;
 
 function start() {
@@ -200,7 +205,10 @@ function start() {
 		objects = objects.filter(object => object.time >= 0);
 
 		while (delta >= timestep) {
-			for (var i = 0; i < lightningSpawnPerPeriod; i++) {
+			spawnBuffer += lightningSpawnPerPeriod;
+
+			while (spawnBuffer >= 1) {
+				spawnBuffer -= 1;
 				spawnLightning(timestamp);
 			}
 
