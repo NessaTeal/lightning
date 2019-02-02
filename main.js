@@ -143,16 +143,15 @@ class Lightning {
 
 	draw(ctx) {
 		ctx.beginPath();
-
 		this.branches.forEach(branch => branch.drawBranch(ctx));
-
 		this.drawBranch(ctx);
-
 		ctx.stroke();
 	}
 }
 
 var objects = [];
+var delta = 0;
+var lastFrameTimeMs = 0;
 var spawnBuffer = 0;
 var timeForLastFrame = 0;
 
@@ -180,9 +179,6 @@ function start() {
 		realCtx.clearRect(0, 0, realCanvas.width, realCanvas.height);
 		realCtx.drawImage(bufferCanvas, 0, 0);
 	}
-
-	var delta = 0;
-	var lastFrameTimeMs = 0;
 
 	function spawnLightning(timestamp) {
 		var distantPoint = startPoint.add(25, 0);
