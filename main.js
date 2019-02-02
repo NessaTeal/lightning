@@ -149,6 +149,7 @@ class Lightning {
 }
 
 var objects = [];
+var timeForLastFrame = 0;
 
 function start() {
 	var realCanvas = $("#realCanvas")[0];
@@ -170,7 +171,7 @@ function start() {
 		objects.forEach(function(object) {
 			object.draw(bufferCtx);
 		})
-
+		bufferCtx.fillText(Math.round(1000 / timeForLastFrame), 2, 10);
 		realCtx.clearRect(0, 0, realCanvas.width, realCanvas.height);
 		realCtx.drawImage(bufferCanvas, 0, 0);
 	}
@@ -187,6 +188,7 @@ function start() {
 	}
 
 	function mainLoop(timestamp) {
+		timeForLastFrame = timestamp - lastFrameTimeMs;
 		delta += timestamp - lastFrameTimeMs;
 		lastFrameTimeMs = timestamp;
 
