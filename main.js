@@ -9,6 +9,12 @@ var standardDeviation = Math.PI / 7;
 var branchingChance = 0.1;
 var branchingAngleMean = Math.PI / 6;
 var branchingSurvivabilityModifier = 0.5;
+var particleConstantSpeed = 5;
+var particleVariableSpeed = 1;
+var particleAcceleration = 0.1;
+var particleConstantLifetime = 100;
+var particleVariableLifetime = 300;
+var particleChance = 0.25;
 
 function getGaussianRandom(mean, standardDeviation) {
 	var v1, v2, s;
@@ -61,6 +67,27 @@ class Segment {
 	}
 }
 
+class Particle {
+	constructor(position, angle) {
+		this.position = position;
+		this.angle = angle;
+		this.speed = particleConstantSpeed + Math.random() * particleVariableSpeed;
+		this.time = particleConstantLifetime + particleVariableLifetime * Math.random();
+	}
+
+	draw(ctx) {
+		ctx.fillStyle = "#FFFFFF";
+		ctx.beginPath();
+		ctx.arc(this.position.x, this.position.y, 0.2, 0, Math.PI * 2);
+		ctx.fill();
+	}
+
+	update() {
+		this.position = this.position.add(this.speed * Math.cos(this.angle), - this.speed * Math.sin(this.angle));
+		this.speed -= particleAcceleration;
+	}
+}
+
 class Lightning {
 	constructor(startPoint, meanAngle, surviveProbability) {
 		this.branches = [];
@@ -69,6 +96,7 @@ class Lightning {
 		this.previousPoint = startPoint;
 		this.surviveProbability = surviveProbability;
 		this.alive = true;
+		this.time = lightningConstantLifetime + lightningVariableLifetime * Math.random();
 	}
 
 	update() {
@@ -88,6 +116,10 @@ class Lightning {
 			var nextPoint = this.previousPoint.add(minLength + Math.random() * (maxLength - minLength), 0);
 			nextPoint.rotate(this.previousPoint, randomAngle);
 			this.segments.push(new Segment(this.previousPoint, nextPoint));
+
+			if (Math.random() <= particleChance) {
+				objects.push(new Particle(nextPoint, randomAngle));
+			}
 
 			if (Math.random() <= branchingChance) {
 				this.branches.push(new Lightning(this.previousPoint, this.meanAngle - branchingAngleMean, this.surviveProbability * branchingSurvivabilityModifier));
@@ -116,6 +148,8 @@ class Lightning {
 	}
 }
 
+var objects = [];
+
 function start() {
 	var realCanvas = $("#realCanvas")[0];
 	var realCtx = realCanvas.getContext("2d");
@@ -127,14 +161,14 @@ function start() {
 	var startPoint = new Point(500, 500);
 	var lightnings = [];
 
-	function update(delta) {
-		lightnings.forEach(lightning => lightning.update());
+	function update() {
+		objects.forEach(object => object.update());
 	}
 
 	function draw() {
 		bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
-		lightnings.forEach(function(lightning) {
-			lightning.draw(bufferCtx);
+		objects.forEach(function(object) {
+			object.draw(bufferCtx);
 		})
 
 		realCtx.clearRect(0, 0, realCanvas.width, realCanvas.height);
@@ -143,15 +177,13 @@ function start() {
 
 	var delta = 0;
 	var lastFrameTimeMs = 0;
-	var despawnTimes = [];
 
 	function spawnLightning(timestamp) {
 		var distantPoint = startPoint.add(25, 0);
 		var angle = Math.PI * Math.random() * 2;
 		distantPoint.rotate(startPoint, angle);
 		var lightning = new Lightning(distantPoint, angle, 1);
-		lightnings.push(lightning);
-		despawnTimes.push(timestamp + lightningConstantLifetime + lightningVariableLifetime * Math.random());
+		objects.push(lightning);
 	}
 
 	function mainLoop(timestamp) {
@@ -162,15 +194,15 @@ function start() {
 			delta = 25;
 		}
 
-		var despawns = despawnTimes.filter(time => time <= timestamp);
-		despawnTimes = despawnTimes.splice(despawns.length)
-		despawns.forEach(() => lightnings.shift());
+		objects.forEach(object => object.time -= delta);
+		objects = objects.filter(object => object.time >= 0);
 
 		while (delta >= timestep) {
 			for (var i = 0; i < lightningSpawnPerPeriod; i++) {
 				spawnLightning(timestamp);
 			}
-			update(timestep);
+
+			update();
 			delta -= timestep;
 		}
 		draw();
