@@ -180,7 +180,7 @@ function start() {
 		realCtx.drawImage(bufferCanvas, 0, 0);
 	}
 
-	function spawnLightning(timestamp) {
+	function spawnLightning() {
 		var distantPoint = startPoint.add(25, 0);
 		var angle = Math.PI * Math.random() * 2;
 		distantPoint.rotate(startPoint, angle);
@@ -205,7 +205,7 @@ function start() {
 
 			while (spawnBuffer >= 1) {
 				spawnBuffer -= 1;
-				spawnLightning(timestamp);
+				spawnLightning();
 			}
 
 			update();
