@@ -225,6 +225,14 @@ function start() {
 		realCtx.clearRect(0, 0, realCanvas.width, realCanvas.height);
 		realCtx.drawImage(bufferCanvas, 0, 0);
 	}
+	
+	realCanvas.onclick = function(event) {
+		var x = event.pageX - this.offsetLeft;
+		var y = event.pageY - this.offsetTop;
+		var targetPoint = new Point(x, y);
+		var lightning = new Lightning(startPoint, targetPoint);
+		objects.push(lightning);
+	}
 
 	function spawnLightning() {
 		var targetPoint = startPoint.add(300, 0);
