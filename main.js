@@ -1,20 +1,19 @@
 var minLength = 3;
-var maxLength = 8;
+var maxLength = 5;
 var timestep = 1000 / 60;
-var lightningSpawnPerPeriod = 5;
-var lightningConstantLifetime = 100;
-var lightningVariableLifetime = 50;
-var lightningSegmentsPerUpdate = 10;
+var lightningSpawnPerPeriod = 1;
+var segmentConstantLifetime = 100;
+var lightningSegmentsPerUpdate = 2;
 var standardDeviation = Math.PI / 7;
 var branchingChance = 0.1;
 var branchingAngleMean = Math.PI / 6;
-var branchingSurvivabilityModifier = 0.5;
+var branchingLengthModifier = 0.2;
 var particleConstantSpeed = 5;
 var particleVariableSpeed = 1;
 var particleAcceleration = 0.1;
 var particleConstantLifetime = 100;
 var particleVariableLifetime = 300;
-var particleChance = 0.1;
+var particleChance = 0.25;
 
 function getGaussianRandom(mean, standardDeviation) {
 	var v1, v2, s;
@@ -59,6 +58,20 @@ class Segment {
 	constructor(from, to) {
 		this.from = from;
 		this.to = to;
+		this.alive = true;
+		this.time = segmentConstantLifetime;
+	}
+	
+	update() {
+		if (!this.alive) {
+			return;
+		}
+		
+		this.time -= timestep;
+		
+		if (this.time <= 0) {
+			this.alive = false;
+		}
 	}
 
 	draw(ctx) {
@@ -101,33 +114,34 @@ class Particle {
 }
 
 class Lightning {
-	constructor(startPoint, meanAngle, surviveProbability) {
+	constructor(startPoint, targetPoint) {
 		this.branches = [];
 		this.segments = [];
-		this.meanAngle = meanAngle;
 		this.previousPoint = startPoint;
-		this.surviveProbability = surviveProbability;
-		this.alive = true;
+		this.targetPoint = targetPoint;
+		this.reachedTarget = false;
 		this.segmentSpawnBuffer = 0;
-		this.time = lightningConstantLifetime + lightningVariableLifetime * Math.random();
+		this.alive = true;
 	}
 
 	update() {
-		this.branches.forEach(branch => branch.update());
-
 		if (!this.alive) {
 			return;
 		}
 		
-		this.time -= timestep;
-		
-		if (this.time < 0) {
+		if (this.reachedTarget &&
+			this.segments.length === 0 &&
+			this.branches.length === 0) {
 			this.alive = false;
 			return;
 		}
-
-		if (Math.random() > this.surviveProbability) {
-			this.alive = false;
+			
+		this.branches = this.branches.filter(branch => branch.alive);
+		this.branches.forEach(branch => branch.update());
+		this.segments = this.segments.filter(segment => segment.alive);
+		this.segments.forEach(segment => segment.update());
+		
+		if (this.reachedTarget) {
 			return;
 		}
 
@@ -135,7 +149,16 @@ class Lightning {
 
 		while (this.segmentSpawnBuffer >= 1) {
 			this.segmentSpawnBuffer -= 1;
-			var randomAngle = getGaussianRandom(this.meanAngle, standardDeviation);
+			var distanceToTarget = Math.sqrt((this.targetPoint.y - this.previousPoint.y) ** 2 + (this.targetPoint.x - this.previousPoint.x) ** 2);
+			
+			if (distanceToTarget <= maxLength) {
+				this.segments.push(new Segment(this.previousPoint, this.targetPoint));
+				this.reachedTarget = true;
+				break;
+			}
+			
+			var angleToTarget = -Math.atan2(this.targetPoint.y - this.previousPoint.y, this.targetPoint.x - this.previousPoint.x);
+			var randomAngle = getGaussianRandom(angleToTarget, standardDeviation);
 			var nextPoint = this.previousPoint.add(minLength + Math.random() * (maxLength - minLength), 0);
 			nextPoint.rotate(this.previousPoint, randomAngle);
 			this.segments.push(new Segment(this.previousPoint, nextPoint));
@@ -143,13 +166,17 @@ class Lightning {
 			if (Math.random() <= particleChance) {
 				objects.push(new Particle(nextPoint, randomAngle));
 			}
-
+			
 			if (Math.random() <= branchingChance) {
-				this.branches.push(new Lightning(this.previousPoint, this.meanAngle - branchingAngleMean, this.surviveProbability * branchingSurvivabilityModifier));
+				var branchingTargetPoint = this.previousPoint.add(distanceToTarget * branchingLengthModifier, 0);
+				branchingTargetPoint.rotate(this.previousPoint, angleToTarget + branchingAngleMean);
+				this.branches.push(new Lightning(this.previousPoint, branchingTargetPoint));
 			}
 
 			if (Math.random() <= branchingChance) {
-				this.branches.push(new Lightning(this.previousPoint, this.meanAngle + branchingAngleMean, this.surviveProbability * branchingSurvivabilityModifier));
+				var branchingTargetPoint = this.previousPoint.add(distanceToTarget * branchingLengthModifier, 0);
+				branchingTargetPoint.rotate(this.previousPoint, angleToTarget - branchingAngleMean);
+				this.branches.push(new Lightning(this.previousPoint, branchingTargetPoint));
 			}
 
 			this.previousPoint = nextPoint;
@@ -200,10 +227,10 @@ function start() {
 	}
 
 	function spawnLightning() {
-		var distantPoint = startPoint.add(25, 0);
+		var targetPoint = startPoint.add(300, 0);
 		var angle = Math.PI * Math.random() * 2;
-		distantPoint.rotate(startPoint, angle);
-		var lightning = new Lightning(distantPoint, angle, 1);
+		targetPoint.rotate(startPoint, angle);
+		var lightning = new Lightning(startPoint, targetPoint);
 		objects.push(lightning);
 	}
 
