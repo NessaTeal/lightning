@@ -14,7 +14,7 @@ var particleVariableSpeed = 1;
 var particleAcceleration = 0.1;
 var particleConstantLifetime = 100;
 var particleVariableLifetime = 300;
-var particleChance = 0.25;
+var particleChance = 0.1;
 
 function getGaussianRandom(mean, standardDeviation) {
 	var v1, v2, s;
@@ -73,16 +73,28 @@ class Particle {
 		this.angle = angle;
 		this.speed = particleConstantSpeed + Math.random() * particleVariableSpeed;
 		this.time = particleConstantLifetime + particleVariableLifetime * Math.random();
+		this.alive = true;
 	}
 
 	draw(ctx) {
 		ctx.fillStyle = "#FFFFFF";
 		ctx.beginPath();
-		ctx.arc(this.position.x, this.position.y, 0.2, 0, Math.PI * 2);
+		ctx.arc(this.position.x, this.position.y, 1, 0, Math.PI * 2);
 		ctx.fill();
 	}
 
 	update() {
+		if (!this.alive) {
+			return;
+		}
+		
+		this.time -= timestep;
+		
+		if (this.time <= 0) {
+			this.alive = false;
+			return;
+		}
+		
 		this.position = this.position.add(this.speed * Math.cos(this.angle), - this.speed * Math.sin(this.angle));
 		this.speed -= particleAcceleration;
 	}
@@ -104,6 +116,13 @@ class Lightning {
 		this.branches.forEach(branch => branch.update());
 
 		if (!this.alive) {
+			return;
+		}
+		
+		this.time -= timestep;
+		
+		if (this.time < 0) {
+			this.alive = false;
 			return;
 		}
 
@@ -194,11 +213,10 @@ function start() {
 		lastFrameTimeMs = timestamp;
 
 		if (delta / timestep >= 25) {
-			delta = 25;
+			delta = 0;
 		}
 
-		objects.forEach(object => object.time -= delta);
-		objects = objects.filter(object => object.time >= 0);
+		objects = objects.filter(object => object.alive);
 
 		while (delta >= timestep) {
 			spawnBuffer += lightningSpawnPerPeriod;
